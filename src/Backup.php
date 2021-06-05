@@ -141,7 +141,7 @@ class Backup extends Component
         if (in_array($folder, $this->excludeDirectories)){
             return;
         }
-        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(Yii::getAlias($folder)),
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($folder),
             \RecursiveDirectoryIterator::SKIP_DOTS |
             \RecursiveDirectoryIterator::CURRENT_AS_PATHNAME
         );
@@ -170,8 +170,11 @@ class Backup extends Component
         foreach ($this->databases as $database) {
             $this->backupDatabase($database);
         }
+        $this->excludeDirectories = array_map(function($dir){
+            return Yii::getAlias($dir);
+        }, $this->excludeDirectories);
         foreach ($this->directories as $name => $folder) {
-            $this->backupFolder($name, $folder);
+            $this->backupFolder($name, Yii::getAlias($folder));
         }
         $this->closeArchive();
         return $this->_backup->getBackupFile();
