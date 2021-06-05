@@ -29,10 +29,10 @@ class Mysql extends Database
     {
         parent::init();
         if (empty($this->dumpCommand)) {
-            $this->dumpCommand = 'mysqldump --add-drop-table --allow-keywords -q -c -u "{username}" -h "{host}" -p\'{password}\' {db} ';
+            $this->dumpCommand = 'mysqldump --add-drop-table --allow-keywords -q -c -u{username} -h "{host}" -p{password} {db} ';
         }
         if (empty($this->loadCommand)) {
-            $this->loadCommand = 'mysql -u "{username}" -h "{host}" -p\'{password}\' {db} ';
+            $this->loadCommand = 'mysql -u{username} -h "{host}" -p{password} {db} ';
         }
     }
 
