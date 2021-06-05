@@ -71,6 +71,14 @@ class Backup extends Component
      */
     public $directories = [];
 
+    /**
+     * List of directories to exclude from backup.
+     * Format: <path/to/dir>
+     *
+     * @var array
+     */
+    public $excludeDirectories = [];
+
     /** @var array List of files to ignore in backup. */
     public $skipFiles = [];
 
@@ -120,6 +128,33 @@ class Backup extends Component
     {
         parent::init();
         $this->_backupTime = time();
+    }
+
+    /**
+     * Appends a whole directory to backup file
+     *
+     * @param string $name Directory name inside the backup
+     * @param string $folder Full path of the directory to append
+     * @return boolean True if directory was appended to backup file, false otherwise
+     */
+    public function backupFolder($name, $folder) {
+        if (in_array($folder, $this->excludeDirectories)){
+            return;
+        }
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(Yii::getAlias($folder)),
+            \RecursiveDirectoryIterator::SKIP_DOTS |
+            \RecursiveDirectoryIterator::CURRENT_AS_PATHNAME
+        );
+        foreach($files as $file) {
+            if ($file->getFilename() === '.' || $file->getFilename() === '..'){
+                continue;
+            }
+            if ($file->isDir()){
+                $this->backupFolder($name.DIRECTORY_SEPARATOR.$file->getBasename(), $folder.DIRECTORY_SEPARATOR.$file->getBasename());
+                continue;
+            }
+            $this->_backup->addFileToBackup($name, $file->getPathname());
+        }
     }
 
     /**
@@ -463,18 +498,6 @@ class Backup extends Component
     }
 
     /**
-     * Appends a whole directory to backup file
-     *
-     * @param string $name Directory name inside the backup
-     * @param string $folder Full path of the directory to append
-     * @return boolean True if directory was appended to backup file, false otherwise
-     */
-    protected function backupFolder($name, $folder)
-    {
-        return $this->_backup->addFolderToBackup($name, $folder);
-    }
-
-    /**
      * Extracts database dump file from backup and imports data into the database
      * of the database connection.
      * The dump file must match the database connection name.
@@ -534,8 +557,8 @@ class Backup extends Component
         };
 
         $files = FileHelper::findFiles($backupsFolder, [
-                    'recursive' => false,
-                    'filter' => $filter,
+            'recursive' => false,
+            'filter' => $filter,
         ]);
         return $files;
     }
