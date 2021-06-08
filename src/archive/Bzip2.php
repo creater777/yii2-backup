@@ -1,81 +1,44 @@
 <?php
-
 /**
- * @copyright Copyright (c) 2020 Alonso Mora
- * @license   https://github.com/amoracr/yii2-backup/blob/master/LICENSE.md
- * @link      https://github.com/amoracr/yii2-backup#readme
- * @author    Alonso Mora <adelfunscr@gmail.com>
+ * Created by PhpStorm.
+ * User: Professional
+ * Date: 08.06.2021
+ * Time: 6:47
  */
 
-namespace amoracr\backup\archive;
+namespace creater777\backup\archive;
 
-use amoracr\backup\archive\Tar as TarArchive;
-use Yii;
-use yii\base\InvalidConfigException;
-use \BadMethodCallException;
-use \Exception;
-use \Phar;
-use \PharData;
-use \UnexpectedValueException;
-
-/**
- * Component for packing and extracting files and directories using Bzip2 compression.
- *
- * @author Alonso Mora <adelfunscr@gmail.com>
- * @since 1.0
- */
-class Bzip2 extends TarArchive
+class Bzip2 extends Tar
 {
-
-    /**
-     * @inheritdoc
-     * @throws InvalidConfigException if extension "bzip2"  is not enabled
-     */
-    public function init()
+    function __construct($options)
     {
-        parent::init();
-        $this->extension = '.tar.bz2';
-
-        if (!empty($this->file)) {
-            $this->backup = $this->file;
-        } else {
-            $this->backup = $this->path . $this->name . '.tar';
-        }
-
-        if (!Phar::canCompress(Phar::BZ2)) {
-            throw new InvalidConfigException('Extension "bzip2" must be enabled.');
-        }
+        parent::__construct($options);
+        $this->options['type'] = "bzip";
     }
 
-    /**
-     * Closes backup file and tries to compress it
-     *
-     * @return boolean True if backup file was closed and compressed, false otherwise
-     */
-    public function close()
+    function create_bzip()
     {
-        $flag = true;
-        try {
-            $archiveFile = new PharData($this->backup);
-            $archiveFile->compress(Phar::BZ2, $this->extension);
-            $oldArchive = $this->backup;
-            $this->backup = str_replace('.tar', $this->extension, $oldArchive);
-            unset($archiveFile);
-            Phar::unlinkArchive($oldArchive);
-        }
-        catch (UnexpectedValueException $ex) {
-            Yii::error("Could not open '{$this->backup}'. Details: " . $ex->getMessage());
-            $flag = false;
-        }
-        catch (BadMethodCallException $ex) {
-            Yii::error("Technically, this should not happen. Details: " . $ex->getMessage());
-            $flag = false;
-        }
-        catch (Exception $ex) {
-            Yii::error("Unable to use backup file. Details: " . $ex->getMessage());
-            $flag = false;
-        }
-        return $flag;
+        if ($this->options['inmemory'] == 0) {
+            $pwd = getcwd();
+            chdir($this->options['basedir']);
+            if ($fp = bzopen($this->options['name'], "wb")) {
+                fseek($this->archive, 0);
+                while ($temp = fread($this->archive, 1048576))
+                    bzwrite($fp, $temp);
+                bzclose($fp);
+                chdir($pwd);
+            } else {
+                $this->error[] = "Could not open {$this->options['name']} for writing.";
+                chdir($pwd);
+                return 0;
+            }
+        } else
+            $this->archive = bzcompress($this->archive, $this->options['level']);
+        return 1;
     }
 
+    function open_archive()
+    {
+        return @bzopen($this->options['name'], "rb");
+    }
 }

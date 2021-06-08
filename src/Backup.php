@@ -1,21 +1,14 @@
 <?php
 
-/**
- * @copyright Copyright (c) 2020 Alonso Mora
- * @license   https://github.com/amoracr/yii2-backup/blob/master/LICENSE.md
- * @link      https://github.com/amoracr/yii2-backup#readme
- * @author    Alonso Mora <adelfunscr@gmail.com>
- */
+namespace creater777\backup;
 
-namespace amoracr\backup;
-
-use amoracr\backup\archive\Bzip2;
-use amoracr\backup\archive\Gzip;
-use amoracr\backup\archive\Tar;
-use amoracr\backup\archive\Zip;
-use amoracr\backup\db\Mysql;
-use amoracr\backup\db\Sqlite;
-use amoracr\backup\db\PostgreSQL;
+use creater777\backup\archive\BzipFile;
+use creater777\backup\archive\GzipFile;
+use creater777\backup\archive\TarFile;
+use creater777\backup\archive\ZipFile;
+use creater777\backup\db\Mysql;
+use creater777\backup\db\Sqlite;
+use creater777\backup\db\PostgreSQL;
 use Yii;
 use yii\base\Component;
 use yii\base\InvalidConfigException;
@@ -121,6 +114,16 @@ class Backup extends Component
     /** @var mixed Instance of archive class to handle the backup file. */
     private $_backup;
 
+    public function __construct(array $config = [])
+    {
+        ini_set("max_execution_time",0);
+        parent::__construct($config);
+        $this->excludeDirectories = array_map(function($dir){
+            return realpath(Yii::getAlias($dir));
+        }, $this->excludeDirectories);
+
+    }
+
     /**
      * @inheritdoc
      */
@@ -138,7 +141,7 @@ class Backup extends Component
      * @return boolean True if directory was appended to backup file, false otherwise
      */
     public function backupFolder($name, $folder) {
-        if (in_array($folder, $this->excludeDirectories)){
+        if (in_array(realpath($folder), $this->excludeDirectories)){
             return;
         }
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($folder),
@@ -153,7 +156,7 @@ class Backup extends Component
                 $this->backupFolder($name.DIRECTORY_SEPARATOR.$file->getBasename(), $folder.DIRECTORY_SEPARATOR.$file->getBasename());
                 continue;
             }
-            $this->_backup->addFileToBackup($name, $file->getPathname());
+            $this->addFileToBackup($file->getPathname(), $name.DIRECTORY_SEPARATOR.$file->getFilename());
         }
     }
 
@@ -174,10 +177,10 @@ class Backup extends Component
             return Yii::getAlias($dir);
         }, $this->excludeDirectories);
         foreach ($this->directories as $name => $folder) {
-            $this->backupFolder($name, Yii::getAlias($folder));
+            $this->backupFolder($name, realpath(Yii::getAlias($folder)));
         }
         $this->closeArchive();
-        return $this->_backup->getBackupFile();
+        return $this->_backup->getName();
     }
 
     /**
@@ -192,9 +195,9 @@ class Backup extends Component
         $this->validateSettings();
         $localBackup = Yii::getAlias($this->backupDir) . DIRECTORY_SEPARATOR . $file;
         if (file_exists($file)) {
-            $this->_backup = $this->getArchive($file);
+            $this->_backup = $this->openArchive($file);
         } else if (file_exists($localBackup)) {
-            $this->_backup = $this->getArchive($localBackup);
+            $this->_backup = $this->openArchive($localBackup);
         } else {
             return false;
         }
@@ -398,64 +401,36 @@ class Backup extends Component
     }
 
     /**
-     * Gets an archive instance according to backup file
-     *
-     * @param string $file Full path to backup file
-     * @return mixed Instance to handle the backup file
-     */
-    protected function getArchive($file)
-    {
-        $extension = pathinfo($file, PATHINFO_EXTENSION);
-        $config = [
-            'file' => $file,
-        ];
-        $archive = null;
-        switch ($extension) {
-            case 'bz2':
-                $archive = new Bzip2($config);
-                break;
-            case 'gz':
-                $archive = new Gzip($config);
-                break;
-            case 'zip':
-                $archive = new Zip($config);
-                break;
-            case 'tar':
-            default:
-                $archive = new Tar($config);
-                break;
-        }
-        return $archive;
-    }
-
-    /**
      * Inits the backup instance and creates the backup file.
      * It sets the path, name and list of ignored files of the archive instance.
      */
     protected function openArchive()
     {
+        $name = sprintf(self::FILE_NAME_FORMAT, date('Y-m-d', $this->_backupTime), date('HisO', $this->_backupTime), $this->fileName);
         $config = [
-            'path' => Yii::getAlias($this->backupDir) . DIRECTORY_SEPARATOR,
-            'name' => sprintf(self::FILE_NAME_FORMAT, date('Y-m-d', $this->_backupTime), date('HisO', $this->_backupTime), $this->fileName),
-            'skipFiles' => $this->skipFiles,
+            'overwrite'=>1,
+            'level'=>3,
+            'inmemory'=>0,
+            'name' => $this->backupDir.DIRECTORY_SEPARATOR.$name.".".$this->compression,
+            'type' => $this->compression
         ];
         switch ($this->compression) {
             case 'bzip2':
-                $this->_backup = new Bzip2($config);
+                $this->_backup = new BzipFile($config);
                 break;
             case 'gzip':
-                $this->_backup = new Gzip($config);
+                $this->_backup = new GzipFile($config);
                 break;
             case 'zip':
-                $this->_backup = new Zip($config);
+                $this->_backup = new ZipFile($config);
                 break;
             case 'none':
             case 'tar':
             default:
-                $this->_backup = new Tar($config);
+                $this->_backup = new TarFile($config);
                 break;
         }
-        $this->_backup->open();
+        $this->_backup->exclude = $this->skipFiles;
     }
 
     /**
@@ -463,7 +438,7 @@ class Backup extends Component
      */
     protected function closeArchive()
     {
-        $this->_backup->close();
+        $this->_backup->createArchive();
     }
 
     /**
@@ -478,7 +453,7 @@ class Backup extends Component
         $dbDump = $this->getDriver($db);
         $file = $dbDump->dumpDatabase($db, $this->backupDir);
         if ($file !== false) {
-            $flag = $this->addFileToBackup('sql', $file);
+            $flag = $this->addFileToBackup($file, 'sql');
             if (true === $flag) {
                 @unlink($file);
             }
@@ -495,9 +470,9 @@ class Backup extends Component
      * @param string $file Full path of the file to append
      * @return boolean True if file was appended to backup file, false otherwise
      */
-    protected function addFileToBackup($name, $file)
+    protected function addFileToBackup($file, $name)
     {
-        return $this->_backup->addFileToBackup($name, $file);
+        return $this->_backup->addFiles($file, $name);
     }
 
     /**

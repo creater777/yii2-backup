@@ -2,12 +2,12 @@
 
 /**
  * @copyright Copyright (c) 2020 Alonso Mora
- * @license   https://github.com/amoracr/yii2-backup/blob/master/LICENSE.md
- * @link      https://github.com/amoracr/yii2-backup#readme
+ * @license   https://github.com/creater777/yii2-backup/blob/master/LICENSE.md
+ * @link      https://github.com/creater777/yii2-backup#readme
  * @author    Alonso Mora <adelfunscr@gmail.com>
  */
 
-namespace amoracr\backup\db;
+namespace creater777\backup\db;
 
 use yii\base\Component;
 use yii\base\InvalidConfigException;
