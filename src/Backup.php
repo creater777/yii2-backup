@@ -449,11 +449,10 @@ class Backup extends Component
      */
     protected function backupDatabase($db)
     {
-        $flag = true;
         $dbDump = $this->getDriver($db);
         $file = $dbDump->dumpDatabase($db, $this->backupDir);
         if ($file !== false) {
-            $flag = $this->addFileToBackup($file, 'sql');
+            $flag = $this->addFileToBackup($file, 'sql'.DIRECTORY_SEPARATOR.$file);
             if (true === $flag) {
                 @unlink($file);
             }
