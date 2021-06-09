@@ -2,10 +2,10 @@
 
 namespace creater777\backup;
 
-use creater777\backup\archive\BzipFile;
-use creater777\backup\archive\GzipFile;
-use creater777\backup\archive\TarFile;
-use creater777\backup\archive\ZipFile;
+use creater777\backup\archive\Bzip2;
+use creater777\backup\archive\Gzip;
+use creater777\backup\archive\Tar;
+use creater777\backup\archive\Zip;
 use creater777\backup\db\Mysql;
 use creater777\backup\db\Sqlite;
 use creater777\backup\db\PostgreSQL;
@@ -416,18 +416,18 @@ class Backup extends Component
         ];
         switch ($this->compression) {
             case 'bzip2':
-                $this->_backup = new BzipFile($config);
+                $this->_backup = new Bzip2($config);
                 break;
             case 'gzip':
-                $this->_backup = new GzipFile($config);
+                $this->_backup = new Gzip($config);
                 break;
             case 'zip':
-                $this->_backup = new ZipFile($config);
+                $this->_backup = new Zip($config);
                 break;
             case 'none':
             case 'tar':
             default:
-                $this->_backup = new TarFile($config);
+                $this->_backup = new Tar($config);
                 break;
         }
         $this->_backup->exclude = $this->skipFiles;
