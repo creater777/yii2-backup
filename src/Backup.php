@@ -6,9 +6,6 @@ use creater777\backup\archive\Bzip2;
 use creater777\backup\archive\Gzip;
 use creater777\backup\archive\Tar;
 use creater777\backup\archive\Zip;
-use creater777\backup\db\Mysql;
-use creater777\backup\db\Sqlite;
-use creater777\backup\db\PostgreSQL;
 use Yii;
 use yii\base\Component;
 use yii\base\InvalidConfigException;
@@ -95,17 +92,17 @@ class Backup extends Component
 
     /** @var mixed The MySQL handler type and configuration. */
     public $mysqlHandler = [
-        'class' => Mysql::class
+        'class' => 'creater777\backup\db\Mysql'
     ];
 
     /** @var mixed The SQLite handler type and configuration. */
     public $sqliteHandler = [
-        'class' => Sqlite::class
+        'class' => 'creater777\backup\db\Sqlite'
     ];
 
     /** @var mixed The PostgreSQL handler type and configuration. */
     public $postgreHandler = [
-        'class' => PostgreSQL::class
+        'class' => 'creater777\backup\db\PostgreSQL'
     ];
 
     /** @var int Timestamp of the backup. */
@@ -452,7 +449,7 @@ class Backup extends Component
         $dbDump = $this->getDriver($db);
         $file = $dbDump->dumpDatabase($db, $this->backupDir);
         if ($file !== false) {
-            $flag = $this->addFileToBackup($file, 'sql'.DIRECTORY_SEPARATOR.$file);
+            $flag = $this->addFileToBackup($file, 'sql'.DIRECTORY_SEPARATOR."$db.sql");
             if (true === $flag) {
                 @unlink($file);
             }
