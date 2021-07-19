@@ -2,6 +2,7 @@
 
 namespace creater777\backup;
 
+use creater777\backup\archive\Archive;
 use creater777\backup\archive\Bzip2;
 use creater777\backup\archive\Gzip;
 use creater777\backup\archive\Tar;
@@ -78,6 +79,9 @@ class Backup extends Component
     /** @var string Suffix for backup file. */
     public $fileName = 'backup';
 
+    /** @var float $freeSpiceLimit check the free disk spice before create backup. 0 is dont check*/
+    public $freeSpiceLimit = 0;
+
     /**
      * Compression method to apply to backup file.
      * Available options:
@@ -108,7 +112,7 @@ class Backup extends Component
     /** @var int Timestamp of the backup. */
     private $_backupTime;
 
-    /** @var mixed Instance of archive class to handle the backup file. */
+    /** @var Archive Instance of archive class to handle the backup file. */
     private $_backup;
 
     public function __construct(array $config = [])
@@ -118,7 +122,7 @@ class Backup extends Component
         $this->excludeDirectories = array_map(function($dir){
             return realpath(Yii::getAlias($dir));
         }, $this->excludeDirectories);
-
+        $this->backupDir = realpath($this->backupDir);
     }
 
     /**
@@ -167,8 +171,9 @@ class Backup extends Component
     {
         $this->validateSettings();
         $this->openArchive();
+        $db=[];
         foreach ($this->databases as $database) {
-            $this->backupDatabase($database);
+            $db[] = $this->backupDatabase($database);
         }
         $this->excludeDirectories = array_map(function($dir){
             return Yii::getAlias($dir);
@@ -177,6 +182,7 @@ class Backup extends Component
             $this->backupFolder($name, realpath(Yii::getAlias($folder)));
         }
         $this->closeArchive();
+        array_map('unlink', $db);
         return $this->_backup->getName();
     }
 
@@ -243,6 +249,7 @@ class Backup extends Component
     protected function validateSettings()
     {
         $this->validateBackupDir();
+        $this->validateFreeDiskSpice();
         $this->validateExpireTime();
         $this->validateFiles();
         $this->validateSkipFiles();
@@ -271,6 +278,18 @@ class Backup extends Component
         }
         if (!is_writable($backupDir)) {
             throw new InvalidConfigException('"' . $this->backupDir . '" is not writeable');
+        }
+        return true;
+    }
+
+    /**
+     * Checks if property freeSpiceLimit
+     * @return bool
+     * @throws InvalidConfigException
+     */
+    protected function validateFreeDiskSpice(){
+        if (disk_free_space($this->backupDir) < $this->freeSpiceLimit && $this->freeSpiceLimit !== 0){
+            throw new InvalidConfigException('"' . get_class($this) . '::freeSpiceLimit" free disk spice is not alowed, "' . gettype($this->freeSpiceLimit) . '" given.');
         }
         return true;
     }
@@ -449,14 +468,9 @@ class Backup extends Component
         $dbDump = $this->getDriver($db);
         $file = $dbDump->dumpDatabase($db, $this->backupDir);
         if ($file !== false) {
-            $flag = $this->addFileToBackup($file, 'sql'.DIRECTORY_SEPARATOR."$db.sql");
-            if (true === $flag) {
-                @unlink($file);
-            }
-        } else {
-            $flag = false;
+            $this->addFileToBackup($file, 'sql'.DIRECTORY_SEPARATOR."$db.sql");
         }
-        return $flag;
+        return $file;
     }
 
     /**
