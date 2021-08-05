@@ -289,7 +289,7 @@ class Backup extends Component
      */
     protected function validateFreeDiskSpice(){
         if (disk_free_space($this->backupDir) < $this->freeSpiceLimit && $this->freeSpiceLimit !== 0){
-            throw new InvalidConfigException('"' . get_class($this) . '::freeSpiceLimit" free disk spice is not alowed, "' . gettype($this->freeSpiceLimit) . '" given.');
+            throw new InvalidConfigException('"' . get_class($this) . '::freeSpiceLimit" free disk spice is not allowed, "' . $this->freeSpiceLimit . '" given.');
         }
         return true;
     }
